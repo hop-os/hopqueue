@@ -51,6 +51,11 @@ type Config struct {
 	// HTTPClient is used for the SSE connection and ack POSTs.
 	// Defaults to a client without read timeout (SSE is long-lived).
 	HTTPClient *http.Client
+
+	// ApplyDelay sleeps the apply path before each event is written
+	// to the local DB. 0 disables. Used by stress tests to simulate
+	// a follower that's slow at consuming the leader's stream.
+	ApplyDelay time.Duration
 }
 
 // Worker is the follower's main goroutine. Run blocks until ctx is
@@ -211,6 +216,12 @@ func (w *Worker) applyStream(ctx context.Context, leaderURL string, body io.Read
 			// Spec-required defensive check; stream ids are always
 			// the seq, so any drift is a bug or a corrupt frame.
 			return fmt.Errorf("event seq %d ≠ SSE id %d", ev.Seq, curID)
+		}
+		if w.cfg.ApplyDelay > 0 {
+			sleep(ctx, w.cfg.ApplyDelay)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 		}
 		if err := w.store.ApplyReplicationEvent(ctx, w.cfg.SelfOwner, &ev); err != nil {
 			return fmt.Errorf("apply seq %d: %w", ev.Seq, err)

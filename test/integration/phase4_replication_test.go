@@ -67,8 +67,14 @@ func startReplicationCluster(t testing.TB, n int, leaseBackend haaslock.Backend,
 		out = append(out, startReplicationNode(t, fmt.Sprintf("node-%d", i+1), leaseBackend, ttl))
 	}
 	t.Cleanup(func() {
+		// Cancel all nodes first, then wait. Sequential cancel+wait
+		// blocks on ts.Close() of the first node because peers still
+		// hold open SSE connections to it (replication stream); only
+		// once their ctxs are cancelled too do those connections drop.
 		for _, node := range out {
 			node.cancel()
+		}
+		for _, node := range out {
 			<-node.done
 		}
 	})
