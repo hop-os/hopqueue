@@ -14,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 //go:embed migrations/*.sql
@@ -86,27 +84,8 @@ func Open(ctx context.Context, path string) (*DB, error) {
 	// hot path off syscalls, temp_store=memory keeps spill files out of
 	// the picture, and a higher autocheckpoint threshold reduces the
 	// frequency of WAL→main rolls under sustained write load.
-	dsn := path + "?_busy_timeout=5000" +
-		"&_foreign_keys=on" +
-		"&_journal_mode=WAL" +
-		"&_synchronous=NORMAL" +
-		"&_cache_size=-65536" +
-		"&_mmap_size=268435456" +
-		"&_temp_store=memory" +
-		"&_wal_autocheckpoint=2000" +
-		"&_txlock=immediate"
-	if path == ":memory:" {
-		// WAL is incompatible with :memory: databases. Use journal mode
-		// memory there; tests don't need durability.
-		dsn = path + "?_busy_timeout=5000" +
-			"&_foreign_keys=on" +
-			"&_journal_mode=MEMORY" +
-			"&_synchronous=OFF" +
-			"&_temp_store=memory" +
-			"&_txlock=immediate"
-	}
-
-	sqlDB, err := sql.Open("sqlite3", dsn)
+	driverName, dsn := sqliteDSN(path)
+	sqlDB, err := sql.Open(driverName, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("storage.Open: %w", err)
 	}
