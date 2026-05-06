@@ -6,7 +6,7 @@ brokers, no Zookeeper, no Redis, no Kafka — one Go binary and one bucket.
 
 ```
                     ┌──────────────┐
-        producers ──▶│   leader     │── replication_log ──▶ followers
+        producers ─▶│   leader     │── replication_log ──▶ followers
                     │              │                        ▲   ▲
         workers   ◀─┤ /enqueue     │                        │   │
         SSE       ◀─┤ /dequeue     │   S3 lease (haaslock) ─┘   │
@@ -186,6 +186,29 @@ zero config.
 | `QUEUE_S3_ENDPOINT`         | AWS default            | For S3-compatible storage (Minio, R2)    |
 | `QUEUE_S3_PATH_STYLE`       | _(unset)_              | Override path-style addressing           |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | from env | S3 credentials |
+| `QUEUE_API_KEY`             | _(unset)_              | Bearer token required on all routes except `/health` |
+
+## Authentication
+
+Set `QUEUE_API_KEY=<your-shared-secret>` to require a bearer token on
+every route except `/health`. Clients pass it as `Authorization: Bearer
+<key>`. Followers pick up the same env var and authenticate to the
+leader's `/replication/stream` and `/replication/ack` automatically.
+
+```bash
+export QUEUE_API_KEY=$(openssl rand -hex 32)
+go run ./cmd/haasqueue
+
+curl -H "Authorization: Bearer $QUEUE_API_KEY" \
+  -X POST http://localhost:8080/enqueue \
+  -H 'Content-Type: application/json' \
+  -d '{"lane":"emails","entity":"customer-1","document":{}}'
+```
+
+The check uses `crypto/subtle.ConstantTimeCompare` to avoid leaking
+the configured key through timing differences. Empty / unset =
+authentication disabled, which matches the local-development default.
+For anything beyond a trusted internal network, set the variable.
 
 ## API
 

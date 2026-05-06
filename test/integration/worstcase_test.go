@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -527,6 +528,121 @@ func startReplicationNodeWithFollowerDelay(t testing.TB, nodeID string, leaseBac
 		cancel:  cancel,
 		done:    done,
 	}
+}
+
+// TestWorstCase_LongSoak runs durable=2 quorum traffic against a
+// 3-node cluster for several minutes. Reports per-minute hiccup
+// counts and tracks heap, goroutine count, and replog growth so
+// obvious leaks show up without needing pprof.
+//
+// Hiccup is defined as a one-second bucket whose p99 exceeds 50ms;
+// at durable=2 @ 1k rps that threshold is roughly 5× the steady-
+// state p99 in the README's measurements, so anything over it is
+// signal rather than noise.
+//
+// Real S3 lease backend is out of scope for this test (we use the
+// in-process mem.New). Real-S3 failover timing is bounded by the
+// lease TTL and one round-trip per renewal — so an upper bound is
+// TTL + RTT, and a lower bound is the time the killed leader takes
+// to stop renewing plus one S3 PUT-If-Match. With TTL=30s, expect
+// 15-30s. Validate against a localstack instance before relying.
+func TestWorstCase_LongSoak(t *testing.T) {
+	if testing.Short() {
+		t.Skip("worst-case skipped under -short")
+	}
+
+	const (
+		duration      = 5 * time.Minute
+		target        = 1000
+		durable       = 2
+		snapshotEvery = 30 * time.Second
+		hiccupP99     = 50 * time.Millisecond
+	)
+
+	leaseBackend := mem.New()
+	nodes := startReplicationCluster(t, 3, leaseBackend, 500*time.Millisecond)
+	leader := waitForReplicationLeader(t, nodes, 3*time.Second)
+	time.Sleep(500 * time.Millisecond)
+
+	runtime.GC()
+	var m0 runtime.MemStats
+	runtime.ReadMemStats(&m0)
+	g0 := runtime.NumGoroutine()
+	rep0, _ := leader.DB.ReplogStatsSnapshot(context.Background())
+	t.Logf("baseline: heap=%dMiB goroutines=%d replog_count=%d",
+		m0.HeapAlloc/(1<<20), g0, rep0.Count)
+
+	urlFor := func() []string { return []string{leader.URL} }
+	start := time.Now()
+
+	snapshotCtx, snapshotCancel := context.WithCancel(context.Background())
+	var snapshotWG sync.WaitGroup
+	snapshotWG.Add(1)
+	go func() {
+		defer snapshotWG.Done()
+		ticker := time.NewTicker(snapshotEvery)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-snapshotCtx.Done():
+				return
+			case <-ticker.C:
+				runtime.GC()
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+				g := runtime.NumGoroutine()
+				rep, _ := leader.DB.ReplogStatsSnapshot(context.Background())
+				t.Logf("at +%s: heap=%dMiB goroutines=%d replog_count=%d (Δ=%d)",
+					time.Since(start).Truncate(time.Second),
+					m.HeapAlloc/(1<<20), g, rep.Count, rep.Count-rep0.Count)
+			}
+		}
+	}()
+
+	samples := runOpenLoop(t, urlFor, "soak", durable, target, duration)
+	snapshotCancel()
+	snapshotWG.Wait()
+
+	// Per-minute summary: count "hiccup seconds" (p99 > hiccupP99).
+	buckets := bucketSamples(samples, start, duration)
+	minutes := int(duration / time.Minute)
+	per := make([][]bucket, minutes)
+	for _, b := range buckets {
+		idx := int(b.t.Sub(start) / time.Minute)
+		if idx < 0 || idx >= minutes {
+			continue
+		}
+		per[idx] = append(per[idx], b)
+	}
+	for i, mb := range per {
+		if len(mb) == 0 {
+			continue
+		}
+		var totalCount, totalErrs, hiccups int
+		var maxP99 time.Duration
+		for _, b := range mb {
+			totalCount += b.count
+			totalErrs += b.errors
+			if b.p99 > maxP99 {
+				maxP99 = b.p99
+			}
+			if b.p99 > hiccupP99 {
+				hiccups++
+			}
+		}
+		t.Logf("minute %d: count=%d errs=%d hiccups>%s=%d max_p99=%s",
+			i, totalCount, totalErrs, hiccupP99, hiccups, maxP99)
+	}
+
+	runtime.GC()
+	var m1 runtime.MemStats
+	runtime.ReadMemStats(&m1)
+	g1 := runtime.NumGoroutine()
+	rep1, _ := leader.DB.ReplogStatsSnapshot(context.Background())
+	t.Logf("final: heap=%dMiB goroutines=%d replog_count=%d",
+		m1.HeapAlloc/(1<<20), g1, rep1.Count)
+	t.Logf("delta over %s: heap_growth=%dMiB goroutine_growth=%d replog_added=%d",
+		duration, int(m1.HeapAlloc-m0.HeapAlloc)/(1<<20), g1-g0, rep1.Count-rep0.Count)
 }
 
 // Silence the unused-import linter on bytes/json/protocol/http if a

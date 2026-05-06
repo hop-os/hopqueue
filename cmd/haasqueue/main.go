@@ -95,7 +95,11 @@ func run() error {
 
 	apiCfg := api.DefaultConfig()
 	apiCfg.LockDuration = cfg.LockDuration
+	apiCfg.APIKey = cfg.APIKey
 	srv := api.NewServer(bus, apiCfg, logger)
+	if cfg.APIKey != "" {
+		logger.Info("API key authentication enabled (all routes except /health)")
+	}
 	idGen := idgen.New()
 	session := &api.Session{Store: store, IDGen: idGen}
 
@@ -136,6 +140,7 @@ func run() error {
 		// orchestration needed beyond Run.
 		fw := follower.New(store, elector, follower.Config{
 			SelfOwner: elector.SelfOwner(),
+			APIKey:    cfg.APIKey,
 		}, logger)
 		go fw.Run(ctx)
 
@@ -258,6 +263,7 @@ type config struct {
 	RetentionFailed   time.Duration
 	RetentionLog      time.Duration
 	RetentionInterval time.Duration
+	APIKey            string
 
 	lease *lease.Config
 }
@@ -273,6 +279,7 @@ func loadConfig() (*config, error) {
 		RetentionFailed:   durationEnvOr("QUEUE_RETENTION_FAILED", 7*24*time.Hour),
 		RetentionLog:      durationEnvOr("QUEUE_RETENTION_LOG", 7*24*time.Hour),
 		RetentionInterval: durationEnvOr("QUEUE_RETENTION_INTERVAL", 5*time.Minute),
+		APIKey:            os.Getenv("QUEUE_API_KEY"),
 	}
 
 	if leaseURL := os.Getenv("QUEUE_LEASE_URL"); leaseURL != "" {

@@ -11,6 +11,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,6 +59,11 @@ type Config struct {
 	// that signal somehow misses (or that becomes available because of a
 	// scheduled available_at). Default 5 seconds.
 	DequeueIdlePoll time.Duration
+	// APIKey, when non-empty, is the bearer token required on every
+	// route except /health. Followers must pass the same key in their
+	// Authorization header (see follower.Config.APIKey). Empty disables
+	// authentication entirely; suitable for local development.
+	APIKey string
 }
 
 // DefaultConfig returns the production defaults for Config.
@@ -129,7 +135,8 @@ func (s *Server) Unbind() {
 // even on 503s.
 func (s *Server) SetActiveness(a Activeness) { s.activeness = a }
 
-// Routes returns the HTTP handler tree.
+// Routes returns the HTTP handler tree. When Config.APIKey is set,
+// every route except /health is wrapped with a bearer-token check.
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleStatus)
@@ -141,7 +148,31 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /replication/stream", s.handleReplicationStream)
 	mux.HandleFunc("POST /replication/ack", s.handleReplicationAck)
 	mux.HandleFunc("GET /metrics", s.handleMetrics)
-	return mux
+	if s.cfg.APIKey == "" {
+		return mux
+	}
+	return s.requireBearer(mux)
+}
+
+// requireBearer checks the Authorization header against the configured
+// API key. /health is exempt so load balancers and orchestrators can
+// probe liveness without credentials. Comparison is constant-time to
+// avoid timing-side-channel leaks of the configured key.
+func (s *Server) requireBearer(next http.Handler) http.Handler {
+	expected := []byte("Bearer " + s.cfg.APIKey)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		got := []byte(r.Header.Get("Authorization"))
+		if len(got) != len(expected) || subtle.ConstantTimeCompare(got, expected) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // requireSession is the gate every handler runs first. If no Session

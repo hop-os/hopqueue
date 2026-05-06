@@ -56,6 +56,11 @@ type Config struct {
 	// to the local DB. 0 disables. Used by stress tests to simulate
 	// a follower that's slow at consuming the leader's stream.
 	ApplyDelay time.Duration
+
+	// APIKey, when non-empty, is sent as a Bearer Authorization
+	// header on every outbound request to the leader. Must match the
+	// leader's api.Config.APIKey.
+	APIKey string
 }
 
 // Worker is the follower's main goroutine. Run blocks until ctx is
@@ -138,6 +143,9 @@ func (w *Worker) subscribeAndApply(ctx context.Context, leaderURL string) error 
 		return err
 	}
 	req.Header.Set("Accept", "text/event-stream")
+	if w.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+w.cfg.APIKey)
+	}
 
 	resp, err := w.cfg.HTTPClient.Do(req)
 	if err != nil {
@@ -282,6 +290,9 @@ func (w *Worker) sendAck(ctx context.Context, leaderURL string, seq int64) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if w.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+w.cfg.APIKey)
+	}
 	resp, err := w.cfg.HTTPClient.Do(req)
 	if err != nil {
 		w.logger.Debug("follower: ack failed", "err", err)
