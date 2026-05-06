@@ -1,0 +1,5 @@
+/data/
+/haasqueue
+*.db
+*.db-wal
+*.db-shm
