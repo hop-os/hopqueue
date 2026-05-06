@@ -25,11 +25,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/stats"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/stats"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // Activeness exposes the current active leader (best-effort) so the
@@ -111,7 +111,7 @@ func NewServer(bus *eventbus.Bus, cfg Config, logger *slog.Logger) *Server {
 func (s *Server) Stats() *stats.Registry { return s.stats }
 
 // SetLeaderInfo records that this node became leader at now with the
-// given haaslock generation. Pair with SetLeaderInfo(time.Time{}, 0)
+// given hoplock generation. Pair with SetLeaderInfo(time.Time{}, 0)
 // on demotion. Drives the Cluster section of the dashboard.
 func (s *Server) SetLeaderInfo(since time.Time, generation int64) {
 	s.stats.SetLeader(since, generation)
@@ -235,16 +235,11 @@ type dashboardData struct {
 	AckRate        int64
 	ErrorRate      int64
 	P50, P95, P99  time.Duration
-	Retention      retentionView
+	RetentionLastRun time.Time
+	RetentionDone    int
+	RetentionFailed  int
+	RetentionTrimmed int64
 	Now            time.Time
-}
-
-type retentionView struct {
-	LastRun  time.Time
-	Done     int
-	Failed   int
-	Trimmed  int64
-	NextDone time.Time // unused for now; placeholder
 }
 
 func (s *Server) collectDashboard(r *http.Request, sess *Session) (dashboardData, error) {
@@ -296,10 +291,7 @@ func (s *Server) collectDashboard(r *http.Request, sess *Session) (dashboardData
 	d.ErrorRate = s.stats.Errors.Total()
 	d.P50, d.P95, d.P99 = s.stats.EnqueueLatency.Percentiles()
 
-	at, done, failed, trimmed := s.stats.RetentionSnapshot()
-	d.Retention = retentionView{
-		LastRun: at, Done: done, Failed: failed, Trimmed: trimmed,
-	}
+	d.RetentionLastRun, d.RetentionDone, d.RetentionFailed, d.RetentionTrimmed = s.stats.RetentionSnapshot()
 	return d, nil
 }
 
@@ -340,7 +332,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"latency_p50":     d.P50.String(),
 		"latency_p95":     d.P95.String(),
 		"latency_p99":     d.P99.String(),
-		"retention":       d.Retention,
+		"retention": map[string]any{
+			"last_run": d.RetentionLastRun,
+			"done":     d.RetentionDone,
+			"failed":   d.RetentionFailed,
+			"trimmed":  d.RetentionTrimmed,
+		},
 	})
 }
 
@@ -367,7 +364,7 @@ func dashboardHeader(nodeID string) string {
 <head>
 <meta charset="utf-8">
 <meta http-equiv="refresh" content="5">
-<title>haasqueue ` + htmlEscape(nodeID) + `</title>
+<title>hopqueue ` + htmlEscape(nodeID) + `</title>
 <style>
 body { font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 760px; margin: 2em auto; color: #222; padding: 0 1em; }
 h1 { font-size: 1.3em; margin: 0 0 .25em; font-family: system-ui, sans-serif; }
@@ -392,7 +389,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
-<h1>haasqueue / ` + htmlEscape(nodeID) + `</h1>
+<h1>hopqueue / ` + htmlEscape(nodeID) + `</h1>
 <p class="subtitle">refresh: 5s &middot; ` + time.Now().UTC().Format("2006-01-02 15:04:05 UTC") + `</p>
 `
 }
@@ -568,14 +565,14 @@ func dashboardReplication(b *strings.Builder, d dashboardData) {
 func dashboardRetention(b *strings.Builder, d dashboardData) {
 	b.WriteString(`<section><h2>Retention</h2>`)
 
-	if d.Retention.LastRun.IsZero() {
+	if d.RetentionLastRun.IsZero() {
 		b.WriteString(`<p class="empty">retention has not run yet on this leader</p></section>`)
 		return
 	}
-	age := time.Since(d.Retention.LastRun).Truncate(time.Second)
+	age := time.Since(d.RetentionLastRun).Truncate(time.Second)
 	b.WriteString(fmt.Sprintf(`<div class="row"><div class="lbl">Last run</div><div class="val">%s ago</div></div>`, age))
 	b.WriteString(fmt.Sprintf(`<div class="row"><div class="lbl">Last pruned</div><div class="val">%d jobs &middot; %d replog rows</div></div>`,
-		d.Retention.Done+d.Retention.Failed, d.Retention.Trimmed))
+		d.RetentionDone+d.RetentionFailed, d.RetentionTrimmed))
 	b.WriteString(fmt.Sprintf(`<div class="row"><div class="lbl">Done jobs now</div><div class="val">%d (kept 1d)</div></div>`,
 		d.StateCounts["done"]))
 	b.WriteString(fmt.Sprintf(`<div class="row"><div class="lbl">Failed jobs now</div><div class="val">%d (kept 7d)</div></div>`,

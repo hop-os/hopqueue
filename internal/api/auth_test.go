@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/storage"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/storage"
 )
 
 // TestRoutes_NoAPIKey confirms that without a configured key, every

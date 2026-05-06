@@ -10,10 +10,10 @@ import (
 	"log/slog"
 	"time"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/stats"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/stats"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // Config controls the retention worker. Zeros pick reasonable

@@ -1,4 +1,4 @@
-// Performance tests for haasqueue.
+// Performance tests for hopqueue.
 //
 // Two flavours live in this file:
 //
@@ -31,9 +31,9 @@ import (
 	"testing"
 	"time"
 
-	"haaslock/mem"
+	"github.com/xinix00/hoplock/mem"
 
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // enqueueOnce posts a single enqueue with the given durable_factor

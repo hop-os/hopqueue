@@ -1,5 +1,5 @@
 /data/
-/haasqueue
+/hopqueue
 *.db
 *.db-wal
 *.db-shm

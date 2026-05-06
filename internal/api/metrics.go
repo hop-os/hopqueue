@@ -25,48 +25,48 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if isLeader {
 		leaderVal = 1
 	}
-	writeMetric(&b, "haasqueue_is_leader",
+	writeMetric(&b, "hopqueue_is_leader",
 		"1 when this node holds the lease, 0 otherwise", "gauge",
 		map[string]string{}, float64(leaderVal))
 	if isLeader {
-		writeMetric(&b, "haasqueue_leader_since_seconds",
+		writeMetric(&b, "hopqueue_leader_since_seconds",
 			"Unix epoch when this node became leader (0 if not leader)", "gauge",
 			map[string]string{}, float64(since.Unix()))
 	}
 
 	// Throughput counters (last 60s window, exposed as totals).
-	writeMetric(&b, "haasqueue_enqueue_60s",
+	writeMetric(&b, "hopqueue_enqueue_60s",
 		"Enqueues in the last 60 seconds", "gauge",
 		map[string]string{}, float64(s.stats.Enqueue.Total()))
 	for k, v := range s.stats.Enqueue.PerLabel() {
-		writeMetric(&b, "haasqueue_enqueue_60s",
+		writeMetric(&b, "hopqueue_enqueue_60s",
 			"", "",
 			map[string]string{"durable_factor": k}, float64(v))
 	}
-	writeMetric(&b, "haasqueue_dequeue_60s",
+	writeMetric(&b, "hopqueue_dequeue_60s",
 		"Dequeues in the last 60 seconds", "gauge",
 		map[string]string{}, float64(s.stats.Dequeue.Total()))
 	for k, v := range s.stats.Dequeue.PerLabel() {
-		writeMetric(&b, "haasqueue_dequeue_60s",
+		writeMetric(&b, "hopqueue_dequeue_60s",
 			"", "",
 			map[string]string{"lane": k}, float64(v))
 	}
-	writeMetric(&b, "haasqueue_acks_60s",
+	writeMetric(&b, "hopqueue_acks_60s",
 		"Replication acks received in the last 60 seconds", "gauge",
 		map[string]string{}, float64(s.stats.Acks.Total()))
-	writeMetric(&b, "haasqueue_errors_60s",
+	writeMetric(&b, "hopqueue_errors_60s",
 		"Server errors in the last 60 seconds", "gauge",
 		map[string]string{}, float64(s.stats.Errors.Total()))
 
 	// Latency percentiles (only meaningful when we've served traffic).
 	p50, p95, p99 := s.stats.EnqueueLatency.Percentiles()
-	writeMetric(&b, "haasqueue_enqueue_latency_seconds",
+	writeMetric(&b, "hopqueue_enqueue_latency_seconds",
 		"Enqueue latency percentiles over the last ~1024 samples", "gauge",
 		map[string]string{"quantile": "0.5"}, p50.Seconds())
-	writeMetric(&b, "haasqueue_enqueue_latency_seconds",
+	writeMetric(&b, "hopqueue_enqueue_latency_seconds",
 		"", "",
 		map[string]string{"quantile": "0.95"}, p95.Seconds())
-	writeMetric(&b, "haasqueue_enqueue_latency_seconds",
+	writeMetric(&b, "hopqueue_enqueue_latency_seconds",
 		"", "",
 		map[string]string{"quantile": "0.99"}, p99.Seconds())
 
@@ -77,20 +77,20 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		if counts, err := sess.Store.CountByLaneState(ctx); err == nil {
 			for lane, byState := range counts {
 				for state, n := range byState {
-					writeMetric(&b, "haasqueue_jobs",
+					writeMetric(&b, "hopqueue_jobs",
 						"Jobs by lane and state", "gauge",
 						map[string]string{"lane": lane, "state": state}, float64(n))
 				}
 			}
 		}
 		if rep, err := sess.Store.ReplogStatsSnapshot(ctx); err == nil {
-			writeMetric(&b, "haasqueue_replog_size",
+			writeMetric(&b, "hopqueue_replog_size",
 				"Number of rows in replication_log", "gauge",
 				map[string]string{}, float64(rep.Count))
-			writeMetric(&b, "haasqueue_replog_max_seq",
+			writeMetric(&b, "hopqueue_replog_max_seq",
 				"Highest seq in replication_log", "gauge",
 				map[string]string{}, float64(rep.MaxSeq))
-			writeMetric(&b, "haasqueue_replog_min_seq",
+			writeMetric(&b, "hopqueue_replog_min_seq",
 				"Lowest seq in replication_log", "gauge",
 				map[string]string{}, float64(rep.MinSeq))
 		}
@@ -101,10 +101,10 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 			maxSeq = rep.MaxSeq
 		}
 		for node, seq := range acks {
-			writeMetric(&b, "haasqueue_follower_acked_seq",
+			writeMetric(&b, "hopqueue_follower_acked_seq",
 				"Highest seq each follower has acked applying", "gauge",
 				map[string]string{"node": node}, float64(seq))
-			writeMetric(&b, "haasqueue_follower_lag_events",
+			writeMetric(&b, "hopqueue_follower_lag_events",
 				"Events the follower is behind the leader's max seq", "gauge",
 				map[string]string{"node": node}, float64(maxSeq-seq))
 		}
@@ -112,7 +112,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	// Worker subscriber gauges.
 	for lane, n := range s.bus.LaneSubscriberCount() {
-		writeMetric(&b, "haasqueue_workers_connected",
+		writeMetric(&b, "hopqueue_workers_connected",
 			"Workers currently subscribed to /dequeue on each lane", "gauge",
 			map[string]string{"lane": lane}, float64(n))
 	}

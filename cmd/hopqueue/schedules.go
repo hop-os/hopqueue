@@ -1,6 +1,6 @@
 package main
 
-import "haasqueue/internal/scheduler"
+import "github.com/xinix00/hopqueue/internal/scheduler"
 
 // schedules returns the cron-driven enqueues this binary fires while
 // it's the active leader. Add Tasks here to wire up periodic work;

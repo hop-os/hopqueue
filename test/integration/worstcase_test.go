@@ -37,16 +37,16 @@ import (
 	"testing"
 	"time"
 
-	"haaslock"
-	"haaslock/mem"
+	"github.com/xinix00/hoplock"
+	"github.com/xinix00/hoplock/mem"
 
-	"haasqueue/internal/api"
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/follower"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/lease"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/api"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/follower"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/lease"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // sample is one observed enqueue: when it completed, how long it took,
@@ -405,7 +405,7 @@ func TestWorstCase_LeaderKill(t *testing.T) {
 // the helper takes a slowFollowerCount argument — but for KISS we
 // hardcode it to 1 here and verify post-elect that exactly one
 // follower has the delay.
-func startReplicationClusterWithFollowerDelay(t testing.TB, n int, leaseBackend haaslock.Backend, ttl, applyDelay time.Duration) []*replicationNode {
+func startReplicationClusterWithFollowerDelay(t testing.TB, n int, leaseBackend hoplock.Backend, ttl, applyDelay time.Duration) []*replicationNode {
 	t.Helper()
 	out := make([]*replicationNode, 0, n)
 	for i := 0; i < n; i++ {
@@ -438,7 +438,7 @@ func startReplicationClusterWithFollowerDelay(t testing.TB, n int, leaseBackend 
 // but threads applyDelay into the follower's Config. Kept as a
 // separate function so the production helper stays untouched and
 // readable.
-func startReplicationNodeWithFollowerDelay(t testing.TB, nodeID string, leaseBackend haaslock.Backend, ttl, applyDelay time.Duration) *replicationNode {
+func startReplicationNodeWithFollowerDelay(t testing.TB, nodeID string, leaseBackend hoplock.Backend, ttl, applyDelay time.Duration) *replicationNode {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "queue.db")
@@ -500,7 +500,7 @@ func startReplicationNodeWithFollowerDelay(t testing.TB, nodeID string, leaseBac
 	}()
 	go func() {
 		defer wg.Done()
-		_ = elector.Lead(ctx, func(leaderCtx context.Context, l haaslock.Lease) error {
+		_ = elector.Lead(ctx, func(leaderCtx context.Context, l hoplock.Lease) error {
 			srv.Bind(session)
 			defer srv.Unbind()
 			sweepCtx, sweepCancel := context.WithCancel(leaderCtx)

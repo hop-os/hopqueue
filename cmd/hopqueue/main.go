@@ -1,4 +1,4 @@
-// haasqueue is the queue server binary.
+// hopqueue is the queue server binary.
 //
 // Two run modes:
 //
@@ -6,7 +6,7 @@
 //     itself the leader. Session is bound at startup; sweeper +
 //     retention run for the lifetime of the process.
 //
-//   - Cluster (QUEUE_LEASE_URL set): a haaslock.Elector races against
+//   - Cluster (QUEUE_LEASE_URL set): a hoplock.Elector races against
 //     peers for an S3-backed lease. Bind/Unbind on api.Server, plus
 //     the sweeper + retention goroutines, are driven by the
 //     leadership stint via lease.Elector.Lead. A non-leader node
@@ -30,17 +30,17 @@ import (
 	"syscall"
 	"time"
 
-	"haaslock"
+	"github.com/xinix00/hoplock"
 
-	"haasqueue/internal/api"
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/follower"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/lease"
-	"haasqueue/internal/retention"
-	"haasqueue/internal/scheduler"
-	"haasqueue/internal/stats"
-	"haasqueue/internal/storage"
+	"github.com/xinix00/hopqueue/internal/api"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/follower"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/lease"
+	"github.com/xinix00/hopqueue/internal/retention"
+	"github.com/xinix00/hopqueue/internal/scheduler"
+	"github.com/xinix00/hopqueue/internal/stats"
+	"github.com/xinix00/hopqueue/internal/storage"
 )
 
 func main() {
@@ -145,7 +145,7 @@ func run() error {
 		go fw.Run(ctx)
 
 		go func() {
-			runDone <- elector.Lead(ctx, func(leaderCtx context.Context, l haaslock.Lease) error {
+			runDone <- elector.Lead(ctx, func(leaderCtx context.Context, l hoplock.Lease) error {
 				logger.Info("acquired leadership", "generation", l.Generation, "owner", l.Owner)
 				srv.Bind(session)
 				srv.SetLeaderInfo(time.Now(), l.Generation)
@@ -171,7 +171,7 @@ func run() error {
 		BaseContext:  func(_ net.Listener) context.Context { return ctx },
 	}
 
-	logger.Info("haasqueue listening", "addr", cfg.Listen, "node_id", cfg.NodeID)
+	logger.Info("hopqueue listening", "addr", cfg.Listen, "node_id", cfg.NodeID)
 	httpErr := make(chan error, 1)
 	go func() {
 		if err := hsrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

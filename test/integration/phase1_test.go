@@ -1,4 +1,4 @@
-// Phase-1 acceptance: a single haasqueue node accepts 1000 enqueues,
+// Phase-1 acceptance: a single hopqueue node accepts 1000 enqueues,
 // 10 concurrent workers drain the queue over the wire (HTTP/SSE), and
 // every job ends up in state 'done' exactly once.
 //
@@ -27,14 +27,14 @@ import (
 	"testing"
 	"time"
 
-	"haasqueue/internal/api"
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/api"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
-// testNode bundles everything a test needs to drive a running haasqueue
+// testNode bundles everything a test needs to drive a running hopqueue
 // node end-to-end: the HTTP server's URL plus the live *storage.DB so
 // tests can read final state without re-opening the file.
 type testNode struct {
@@ -42,7 +42,7 @@ type testNode struct {
 	DB  *storage.DB
 }
 
-// startServer spins up an in-process haasqueue using a fresh SQLite DB.
+// startServer spins up an in-process hopqueue using a fresh SQLite DB.
 // Cleanup is registered with t. Accepts testing.TB so benchmarks can
 // use the same helper.
 func startServer(t testing.TB) *testNode {

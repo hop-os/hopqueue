@@ -1,6 +1,6 @@
 // Phase-4 acceptance: peer replication.
 //
-// Three in-process nodes share a haaslock/mem.Backend for leader
+// Three in-process nodes share a hoplock/mem.Backend for leader
 // election. Each node has its own SQLite DB and httptest HTTP server.
 // The follower applier is wired to subscribe to whichever peer holds
 // the lease (using the lease.State.Owner URL as the discovery
@@ -28,16 +28,16 @@ import (
 	"testing"
 	"time"
 
-	"haaslock"
-	"haaslock/mem"
+	"github.com/xinix00/hoplock"
+	"github.com/xinix00/hoplock/mem"
 
-	"haasqueue/internal/api"
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/follower"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/lease"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/api"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/follower"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/lease"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // replicationNode is one node in a Phase-4 cluster: storage + api +
@@ -60,7 +60,7 @@ func (n *replicationNode) IsLeader() bool { return n.elector.IsLeader() }
 // startReplicationCluster spins up `n` nodes sharing leaseBackend.
 // Each node runs its own follower applier, so as soon as one becomes
 // leader the others start catching up to its writes.
-func startReplicationCluster(t testing.TB, n int, leaseBackend haaslock.Backend, ttl time.Duration) []*replicationNode {
+func startReplicationCluster(t testing.TB, n int, leaseBackend hoplock.Backend, ttl time.Duration) []*replicationNode {
 	t.Helper()
 	out := make([]*replicationNode, 0, n)
 	for i := 0; i < n; i++ {
@@ -81,7 +81,7 @@ func startReplicationCluster(t testing.TB, n int, leaseBackend haaslock.Backend,
 	return out
 }
 
-func startReplicationNode(t testing.TB, nodeID string, leaseBackend haaslock.Backend, ttl time.Duration) *replicationNode {
+func startReplicationNode(t testing.TB, nodeID string, leaseBackend hoplock.Backend, ttl time.Duration) *replicationNode {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "queue.db")
@@ -147,7 +147,7 @@ func startReplicationNode(t testing.TB, nodeID string, leaseBackend haaslock.Bac
 	}()
 	go func() {
 		defer wg.Done()
-		_ = elector.Lead(ctx, func(leaderCtx context.Context, l haaslock.Lease) error {
+		_ = elector.Lead(ctx, func(leaderCtx context.Context, l hoplock.Lease) error {
 			srv.Bind(session)
 			defer srv.Unbind()
 			sweepCtx, sweepCancel := context.WithCancel(leaderCtx)

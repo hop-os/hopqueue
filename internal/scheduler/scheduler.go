@@ -5,7 +5,7 @@
 // in-flight tickers stop. A demoted node never enqueues — the new
 // leader picks up at its next scheduled tick.
 //
-// Tasks are configured in code (cmd/haasqueue/schedules.go) rather
+// Tasks are configured in code (cmd/hopqueue/schedules.go) rather
 // than via env: a cron expression + the EnqueueRequest shape that
 // fires when the expression matches. Each tick goes through the same
 // storage.Enqueue path a real client would, so replication, durability
@@ -22,10 +22,10 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // Task is one cron-driven enqueue.

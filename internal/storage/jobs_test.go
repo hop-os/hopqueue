@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"haasqueue/internal/idgen"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 func openTestDB(t *testing.T) *DB {

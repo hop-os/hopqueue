@@ -3,11 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // pendingDurable tracks jobs that asked for durability confirmation
@@ -133,12 +132,3 @@ func (s *Server) emitSynced(ctx context.Context, sess *Session, enqueuedSeq int6
 		Data:  data,
 	})
 }
-
-// errSyncedSkipped is returned for code paths that want to assert
-// they didn't try to emit synced for a non-durable job. It's not
-// actually thrown anywhere today — kept for future precondition
-// tests that might want to detect a regression where the filter at
-// handleEnqueue is removed.
-var errSyncedSkipped = fmt.Errorf("synced skipped: durable_factor=0")
-
-var _ = errSyncedSkipped

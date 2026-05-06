@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"haasqueue/internal/idgen"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // Sentinel errors. Handlers translate these to HTTP statuses; tests

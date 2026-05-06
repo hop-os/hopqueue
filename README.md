@@ -1,4 +1,4 @@
-# haasqueue
+# hopqueue
 
 A small, fast, single-binary job queue. SQLite for storage, HTTP/SSE for the
 wire, S3 for leader election. Three nodes replicate over plain HTTP. No
@@ -9,7 +9,7 @@ brokers, no Zookeeper, no Redis, no Kafka — one Go binary and one bucket.
         producers ─▶│   leader     │── replication_log ──▶ followers
                     │              │                        ▲   ▲
         workers   ◀─┤ /enqueue     │                        │   │
-        SSE       ◀─┤ /dequeue     │   S3 lease (haaslock) ─┘   │
+        SSE       ◀─┤ /dequeue     │   S3 lease (hoplock) ─┘   │
                     │ /events/{id} │                            │
                     └──────────────┘ ◀── ack stream ────────────┘
 ```
@@ -17,7 +17,7 @@ brokers, no Zookeeper, no Redis, no Kafka — one Go binary and one bucket.
 ## Why
 
 Most job queues either embrace a heavy stack (Kafka, RabbitMQ) or run on
-single-node Redis with hand-rolled HA. haasqueue sits in the middle: durable
+single-node Redis with hand-rolled HA. hopqueue sits in the middle: durable
 SQLite WAL on every node, a leader chosen by an S3 conditional-write lease,
 and replication that is just a tail of an append-only log.
 
@@ -42,7 +42,7 @@ and replication that is just a tail of an append-only log.
 
 ```bash
 # Single node, no clustering, listens on :8080
-go run ./cmd/haasqueue
+go run ./cmd/hopqueue
 
 # Submit a job
 curl -s -X POST http://localhost:8080/enqueue \
@@ -66,10 +66,10 @@ leader; the rest tail it as followers. On lease expiry or a deliberate
 demotion, election re-runs.
 
 ```bash
-export QUEUE_LEASE_URL=s3://my-bucket/haasqueue.lease
+export QUEUE_LEASE_URL=s3://my-bucket/hopqueue.lease
 export QUEUE_PUBLIC_URL=https://node1.internal:8080
 export QUEUE_NODE_ID=node1
-go run ./cmd/haasqueue
+go run ./cmd/hopqueue
 ```
 
 Followers reconcile via the leader's `replication_log` table over an SSE
@@ -157,12 +157,12 @@ open-loop run with a 128-worker pool.
   durability watcher.
 - `internal/eventbus` — in-process pub/sub for per-job and per-lane fanout.
 - `internal/follower` — applies the leader's `replication_log` rows locally.
-- `internal/lease` — wraps `haaslock` with the bind/unbind orchestration the
+- `internal/lease` — wraps `hoplock` with the bind/unbind orchestration the
   API server expects.
 - `internal/idgen` — `<entity>/<ulid>` IDs, monotonic within a millisecond.
 - `internal/scheduler`, `internal/retention` — leader-only background jobs.
 - `pkg/protocol` — wire types: requests, responses, replication payloads.
-- `cmd/haasqueue` — binary, env-var configuration, leader-task wiring.
+- `cmd/hopqueue` — binary, env-var configuration, leader-task wiring.
 
 ## Configuration
 
@@ -197,7 +197,7 @@ leader's `/replication/stream` and `/replication/ack` automatically.
 
 ```bash
 export QUEUE_API_KEY=$(openssl rand -hex 32)
-go run ./cmd/haasqueue
+go run ./cmd/hopqueue
 
 curl -H "Authorization: Bearer $QUEUE_API_KEY" \
   -X POST http://localhost:8080/enqueue \

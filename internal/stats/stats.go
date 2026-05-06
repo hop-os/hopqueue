@@ -218,7 +218,7 @@ func New() *Registry {
 }
 
 // SetLeader records that we became leader at now with the given
-// haaslock generation. Pass zeros (time.Time{}, 0) on demotion.
+// hoplock generation. Pass zeros (time.Time{}, 0) on demotion.
 func (r *Registry) SetLeader(since time.Time, generation int64) {
 	if since.IsZero() {
 		r.leaderSince.Store(0)

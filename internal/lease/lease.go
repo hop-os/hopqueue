@@ -1,4 +1,4 @@
-// Package lease wires haaslock.Elector to the queue's configuration:
+// Package lease wires hoplock.Elector to the queue's configuration:
 // env-driven config, S3 backing by default (or a caller-supplied
 // Backend for tests), and a small surface for the rest of the binary
 // to consult ("am I leader?", "what is the current fencing
@@ -14,15 +14,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"haaslock"
-	"haaslock/s3"
+	"github.com/xinix00/hoplock"
+	"github.com/xinix00/hoplock/s3"
 )
 
-// Config is the lease-related slice of haasqueue's configuration. It
-// maps onto haaslock's Backend and Elector fields without exposing them
-// directly, so the rest of the binary only sees haasqueue-shaped values.
+// Config is the lease-related slice of hopqueue's configuration. It
+// maps onto hoplock's Backend and Elector fields without exposing them
+// directly, so the rest of the binary only sees hopqueue-shaped values.
 type Config struct {
-	// NodeID is this node's identifier. Used as the haaslock Owner
+	// NodeID is this node's identifier. Used as the hoplock Owner
 	// when Owner is empty. Required.
 	NodeID string
 
@@ -35,9 +35,9 @@ type Config struct {
 
 	// Backend overrides the auto-constructed S3 backend. When non-nil,
 	// all S3 fields below are ignored. Tests use this to inject
-	// haaslock/mem.Backend; production leaves it nil and lets New build
+	// hoplock/mem.Backend; production leaves it nil and lets New build
 	// an s3.Backend from the AWS-style fields below.
-	Backend haaslock.Backend
+	Backend hoplock.Backend
 
 	// LeaseURL is the s3:// URL of the lease object, e.g.
 	// "s3://my-bucket/queue/lease.json". Required when Backend is nil.
@@ -69,12 +69,12 @@ type Config struct {
 	TTL time.Duration
 }
 
-// Elector is haasqueue's view of haaslock.Elector. It runs the
+// Elector is hopqueue's view of hoplock.Elector. It runs the
 // election loop in the background and exposes a snapshot ("am I
 // leader?") for other subsystems that need to gate writes on
 // leadership.
 type Elector struct {
-	inner *haaslock.Elector
+	inner *hoplock.Elector
 	owner string
 
 	// Atomic snapshot updated by the loop and read by IsLeader/
@@ -113,7 +113,7 @@ func New(cfg Config) (*Elector, error) {
 	}
 
 	return &Elector{
-		inner: &haaslock.Elector{
+		inner: &hoplock.Elector{
 			Backend: backend,
 			Owner:   owner,
 			TTL:     ttl,
@@ -129,9 +129,9 @@ func (e *Elector) Run(ctx context.Context) error {
 	events := e.inner.Run(ctx)
 	for ev := range events {
 		switch ev.Kind {
-		case haaslock.EventAcquired, haaslock.EventRenewed:
+		case hoplock.EventAcquired, hoplock.EventRenewed:
 			e.heldGen.Store(ev.Lease.Generation)
-		case haaslock.EventLost:
+		case hoplock.EventLost:
 			e.heldGen.Store(0)
 		}
 	}
@@ -147,8 +147,8 @@ func (e *Elector) Run(ctx context.Context) error {
 // IsLeader/CurrentGeneration reflect the current state for the
 // duration of fn — so other goroutines that need to gate on leadership
 // can check them without coordinating with fn directly.
-func (e *Elector) Lead(ctx context.Context, fn func(ctx context.Context, lease haaslock.Lease) error) error {
-	return e.inner.Lead(ctx, func(leaderCtx context.Context, l haaslock.Lease) error {
+func (e *Elector) Lead(ctx context.Context, fn func(ctx context.Context, lease hoplock.Lease) error) error {
+	return e.inner.Lead(ctx, func(leaderCtx context.Context, l hoplock.Lease) error {
 		e.heldGen.Store(l.Generation)
 		defer e.heldGen.Store(0)
 		return fn(leaderCtx, l)
@@ -172,7 +172,7 @@ func (e *Elector) IsLeader() bool {
 // themselves.
 func (e *Elector) CurrentOwner(ctx context.Context) (owner string, generation int64, err error) {
 	state, _, err := e.inner.Backend.Read(ctx)
-	if errors.Is(err, haaslock.ErrNoLease) {
+	if errors.Is(err, hoplock.ErrNoLease) {
 		return "", 0, nil
 	}
 	if err != nil {
@@ -193,7 +193,7 @@ func (e *Elector) CurrentGeneration() int64 {
 
 // newS3Backend builds an s3.Backend from the Config's S3 fields.
 // Called from New when cfg.Backend is nil.
-func newS3Backend(cfg Config) (haaslock.Backend, error) {
+func newS3Backend(cfg Config) (hoplock.Backend, error) {
 	bucket, key, err := parseLeaseURL(cfg.LeaseURL)
 	if err != nil {
 		return nil, err

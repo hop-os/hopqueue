@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 func quietLogger() *slog.Logger {

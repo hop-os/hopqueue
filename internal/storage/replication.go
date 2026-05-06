@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 var timeNow = time.Now

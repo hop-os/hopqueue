@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // Sweeper periodically releases jobs whose worker locks have expired.

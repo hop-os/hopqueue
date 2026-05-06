@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
 // replicationStreamBatch caps each replay batch read from

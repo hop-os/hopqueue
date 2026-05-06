@@ -1,5 +1,5 @@
 // Phase-3 acceptance: leader election with three in-process nodes
-// sharing a haaslock/mem.Backend. The mem backend simulates the cluster
+// sharing a hoplock/mem.Backend. The mem backend simulates the cluster
 // contention an S3 lease would arbitrate, without touching any real
 // network — the queue's leadership-binding logic is what's under test.
 //
@@ -23,18 +23,18 @@ import (
 	"testing"
 	"time"
 
-	"haaslock"
-	"haaslock/mem"
+	"github.com/xinix00/hoplock"
+	"github.com/xinix00/hoplock/mem"
 
-	"haasqueue/internal/api"
-	"haasqueue/internal/eventbus"
-	"haasqueue/internal/idgen"
-	"haasqueue/internal/lease"
-	"haasqueue/internal/storage"
-	"haasqueue/pkg/protocol"
+	"github.com/xinix00/hopqueue/internal/api"
+	"github.com/xinix00/hopqueue/internal/eventbus"
+	"github.com/xinix00/hopqueue/internal/idgen"
+	"github.com/xinix00/hopqueue/internal/lease"
+	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/xinix00/hopqueue/pkg/protocol"
 )
 
-// clusterNode is one in-process haasqueue node, with its own storage,
+// clusterNode is one in-process hopqueue node, with its own storage,
 // HTTP server, and lease elector. The Cancel function tears the node
 // down; all goroutines exit before it returns.
 type clusterNode struct {
@@ -52,9 +52,9 @@ type clusterNode struct {
 func (n *clusterNode) IsLeader() bool { return n.elector.IsLeader() }
 
 // startCluster spins up `n` in-process nodes, all sharing leaseBackend
-// for haaslock-driven election. Each node runs its own storage in a
+// for hoplock-driven election. Each node runs its own storage in a
 // per-node temp dir.
-func startCluster(t *testing.T, n int, leaseBackend haaslock.Backend, ttl time.Duration) []*clusterNode {
+func startCluster(t *testing.T, n int, leaseBackend hoplock.Backend, ttl time.Duration) []*clusterNode {
 	t.Helper()
 	out := make([]*clusterNode, 0, n)
 	for i := 0; i < n; i++ {
@@ -70,7 +70,7 @@ func startCluster(t *testing.T, n int, leaseBackend haaslock.Backend, ttl time.D
 	return out
 }
 
-func startNode(t *testing.T, nodeID string, leaseBackend haaslock.Backend, ttl time.Duration) *clusterNode {
+func startNode(t *testing.T, nodeID string, leaseBackend hoplock.Backend, ttl time.Duration) *clusterNode {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "queue.db")
@@ -104,7 +104,7 @@ func startNode(t *testing.T, nodeID string, leaseBackend haaslock.Backend, ttl t
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_ = elector.Lead(ctx, func(leaderCtx context.Context, l haaslock.Lease) error {
+		_ = elector.Lead(ctx, func(leaderCtx context.Context, l hoplock.Lease) error {
 			srv.Bind(session)
 			defer srv.Unbind()
 			// Run a sweeper to support tests that exercise
@@ -247,7 +247,7 @@ func TestPhase3_FailoverAfterLeaderExits(t *testing.T) {
 	leader := waitForLeader(t, nodes, 3*time.Second)
 	t.Logf("first leader: %s", leader.NodeID)
 
-	// Cancel the leader's context. haaslock's Lead wrapper releases
+	// Cancel the leader's context. hoplock's Lead wrapper releases
 	// the lease cleanly on shutdown so a successor can acquire fresh
 	// rather than waiting for TTL expiry.
 	leader.Cancel()
@@ -262,11 +262,11 @@ func TestPhase3_FailoverAfterLeaderExits(t *testing.T) {
 	}
 }
 
-// noDeleteBackend wraps a haaslock.Backend and turns Delete into a
+// noDeleteBackend wraps a hoplock.Backend and turns Delete into a
 // no-op. Tests use this to simulate a leader that crashes hard
 // (without cooperative release) so the successor takes over via the
 // expired-lease path and the generation bumps.
-type noDeleteBackend struct{ haaslock.Backend }
+type noDeleteBackend struct{ hoplock.Backend }
 
 func (b *noDeleteBackend) Delete(ctx context.Context, handle string) error {
 	return nil
