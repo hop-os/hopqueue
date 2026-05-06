@@ -80,6 +80,134 @@ resumes from where it left off.
 A non-leader request gets `503 Service Unavailable` with an `X-Active-Leader`
 header pointing at the current leader — clients retry there.
 
+## Streaming (SSE)
+
+Every long-lived path in hopqueue is plain Server-Sent Events: one HTTP
+response, one event per `\n\n`-delimited block, browser-native, and
+resumable via `Last-Event-ID`. No websockets, no long-poll loops, no
+client library required — `curl -N` is enough to debug anything.
+
+There are three streams, each with a clear audience:
+
+| Stream                       | Who connects   | What flows                                               |
+|------------------------------|----------------|----------------------------------------------------------|
+| `GET /events/{jobId}`        | producers      | one job's lifecycle: `enqueued` → `claimed` → `progress`* → `done`/`failed`/`released` (`synced` interleaved if `durable_factor != 0`) |
+| `GET /dequeue/{lane}`        | workers        | `welcome` (assigns worker id) → `job` (claim) → next `job` after the previous terminal |
+| `GET /replication/stream`    | follower nodes | every replog row in commit order, ack via `POST /replication/ack` |
+
+Every event has a numeric `id:` line that matches `replication_log.seq` —
+the same monotonic counter used for replication. Reconnect with
+`Last-Event-ID: <seq>` and the server replays from `seq+1`. No state on
+the client besides the last seen id.
+
+### Watching a job from the producer
+
+Submit a job and stream its lifecycle on the same connection by sending
+`Accept: text/event-stream` to `/enqueue`:
+
+```bash
+curl -N -H 'Accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{"lane":"emails","entity":"customer-1","document":{"to":"a@b.c"},"durable_factor":1}' \
+  http://localhost:8080/enqueue
+```
+
+```
+id: 41
+event: enqueued
+data: {"jobId":"customer-1/01HXX...","lane":"emails"}
+
+id: 42
+event: claimed
+data: {"workerId":"...","lockedUntil":1746567420}
+
+id: 47
+event: synced
+data: {"enqueued_seq":41,"durable_factor":1,"acked_by":1}
+
+id: 53
+event: done
+data: {"result":{"messageId":"abc"},"completedAt":1746567425}
+```
+
+The connection closes after the terminal event (`done`, `failed`, or
+`released`). Mid-stream disconnect? Reconnect to
+`GET /events/customer-1/01HXX...` with `Last-Event-ID: 47` and you'll
+get just `done`.
+
+### A worker
+
+Workers don't poll. They open `/dequeue/{lane}` once and read jobs as
+they're claimed for them:
+
+```bash
+curl -N http://localhost:8080/dequeue/emails
+```
+
+```
+event: welcome
+data: {"worker_id":"3a8e..."}
+
+id: 42
+event: job
+data: {"id":"customer-1/01HXX...","lane":"emails","document":{...},...}
+```
+
+The server holds the connection open. When work arrives, you get a `job`
+event with the claim seq as its id. After processing, hit
+`POST /jobs/{id}/done` (or `/fail` / `/release`) with header
+`X-Worker-ID: <welcome.worker_id>`. The next `job` event lands as soon
+as the next item is available — same connection, no reconnect.
+
+If the worker crashes mid-job, the lock expires after `QUEUE_LOCK_DURATION`
+and the sweeper releases the job back to `pending` — another worker
+picks it up on its next dequeue.
+
+### Why SSE
+
+- **One-way is enough.** Producer→server is a regular `POST`, server→client
+  is a stream. Websockets buy bidirectional framing we don't need.
+- **`Last-Event-ID` is built-in.** Any HTTP-aware reverse proxy passes it
+  through. Resume is "send the header, get the missed events."
+- **Heartbeat is a comment line.** `: heartbeat\n\n` keeps the connection
+  warm through proxies; clients ignore it. The server sends one every
+  15s by default (`HeartbeatInterval`).
+- **Backpressure is a drop, not a block.** Each subscriber has a 32-event
+  buffer; if a consumer falls behind, publishes drop on the floor and
+  recovery is via reconnect-with-last-event-id. The leader never stalls.
+
+## Scheduled jobs
+
+hopqueue ships with a cron-driven enqueue path in `internal/scheduler`.
+Tasks are defined in code in [`cmd/hopqueue/schedules.go`](cmd/hopqueue/schedules.go);
+the default file returns `nil` (no scheduled work). Override it in your
+fork or replace it via build tag for production wiring.
+
+```go
+// cmd/hopqueue/schedules.go
+func schedules() []scheduler.Task {
+    return []scheduler.Task{{
+        Spec:     "@every 1h",
+        Lane:     "billing",
+        Entity:   "scheduled/hourly-rollup",
+        Document: json.RawMessage(`{"task":"rollup"}`),
+    }}
+}
+```
+
+`Spec` accepts robfig/cron syntax: standard 5-field (`*/5 * * * *`),
+6-field with seconds, or shorthand (`@hourly`, `@every 30s`). Tasks are
+validated at startup — a malformed cron expression is a fatal error,
+not a silent skip.
+
+The scheduler is **leader-only**. It runs as part of the leader-task
+coordinator (`runLeaderTasks`), tied to the leadership stint context.
+On demotion the ctx fires and all in-flight tickers stop; a demoted node
+never enqueues. The new leader picks up at its next scheduled tick — no
+catch-up of missed ticks. Each fire goes through the same `storage.Enqueue`
+path a real client would, so replication, durability confirmation, and
+retention all behave identically for scheduled jobs.
+
 ## Build options
 
 The SQLite driver is selected at build time. The default is pure Go, no CGO.
