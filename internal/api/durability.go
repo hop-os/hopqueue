@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/xinix00/hopqueue/internal/eventbus"
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/internal/eventbus"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // pendingDurable tracks jobs that asked for durability confirmation

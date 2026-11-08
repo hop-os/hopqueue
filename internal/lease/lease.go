@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xinix00/hoplock"
-	"github.com/xinix00/hoplock/s3"
+	"github.com/hop-os/hoplock"
+	"github.com/hop-os/hoplock/s3"
 )
 
 // Config is the lease-related slice of hopqueue's configuration. It

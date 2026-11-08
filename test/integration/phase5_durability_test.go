@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xinix00/hoplock/mem"
+	"github.com/hop-os/hoplock/mem"
 
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // enqueueAndStreamSyncedEvents posts an enqueue with the given

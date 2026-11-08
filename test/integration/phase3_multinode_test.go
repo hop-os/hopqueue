@@ -23,15 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xinix00/hoplock"
-	"github.com/xinix00/hoplock/mem"
+	"github.com/hop-os/hoplock"
+	"github.com/hop-os/hoplock/mem"
 
-	"github.com/xinix00/hopqueue/internal/api"
-	"github.com/xinix00/hopqueue/internal/eventbus"
-	"github.com/xinix00/hopqueue/internal/idgen"
-	"github.com/xinix00/hopqueue/internal/lease"
-	"github.com/xinix00/hopqueue/internal/storage"
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/internal/api"
+	"github.com/hop-os/hopqueue/internal/eventbus"
+	"github.com/hop-os/hopqueue/internal/idgen"
+	"github.com/hop-os/hopqueue/internal/lease"
+	"github.com/hop-os/hopqueue/internal/storage"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // clusterNode is one in-process hopqueue node, with its own storage,

@@ -31,9 +31,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xinix00/hoplock/mem"
+	"github.com/hop-os/hoplock/mem"
 
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // enqueueOnce posts a single enqueue with the given durable_factor

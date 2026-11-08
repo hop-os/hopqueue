@@ -27,11 +27,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xinix00/hopqueue/internal/api"
-	"github.com/xinix00/hopqueue/internal/eventbus"
-	"github.com/xinix00/hopqueue/internal/idgen"
-	"github.com/xinix00/hopqueue/internal/storage"
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/internal/api"
+	"github.com/hop-os/hopqueue/internal/eventbus"
+	"github.com/hop-os/hopqueue/internal/idgen"
+	"github.com/hop-os/hopqueue/internal/storage"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // testNode bundles everything a test needs to drive a running hopqueue

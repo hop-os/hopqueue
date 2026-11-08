@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xinix00/hoplock/mem"
+	"github.com/hop-os/hoplock/mem"
 )
 
 func TestParseLeaseURL(t *testing.T) {

@@ -22,10 +22,10 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/xinix00/hopqueue/internal/eventbus"
-	"github.com/xinix00/hopqueue/internal/idgen"
-	"github.com/xinix00/hopqueue/internal/storage"
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/internal/eventbus"
+	"github.com/hop-os/hopqueue/internal/idgen"
+	"github.com/hop-os/hopqueue/internal/storage"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // Task is one cron-driven enqueue.

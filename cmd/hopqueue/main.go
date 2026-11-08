@@ -30,17 +30,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/xinix00/hoplock"
+	"github.com/hop-os/hoplock"
 
-	"github.com/xinix00/hopqueue/internal/api"
-	"github.com/xinix00/hopqueue/internal/eventbus"
-	"github.com/xinix00/hopqueue/internal/follower"
-	"github.com/xinix00/hopqueue/internal/idgen"
-	"github.com/xinix00/hopqueue/internal/lease"
-	"github.com/xinix00/hopqueue/internal/retention"
-	"github.com/xinix00/hopqueue/internal/scheduler"
-	"github.com/xinix00/hopqueue/internal/stats"
-	"github.com/xinix00/hopqueue/internal/storage"
+	"github.com/hop-os/hopqueue/internal/api"
+	"github.com/hop-os/hopqueue/internal/eventbus"
+	"github.com/hop-os/hopqueue/internal/follower"
+	"github.com/hop-os/hopqueue/internal/idgen"
+	"github.com/hop-os/hopqueue/internal/lease"
+	"github.com/hop-os/hopqueue/internal/retention"
+	"github.com/hop-os/hopqueue/internal/scheduler"
+	"github.com/hop-os/hopqueue/internal/stats"
+	"github.com/hop-os/hopqueue/internal/storage"
 )
 
 func main() {

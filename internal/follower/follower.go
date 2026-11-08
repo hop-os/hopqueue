@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xinix00/hopqueue/internal/lease"
-	"github.com/xinix00/hopqueue/internal/storage"
-	"github.com/xinix00/hopqueue/pkg/protocol"
+	"github.com/hop-os/hopqueue/internal/lease"
+	"github.com/hop-os/hopqueue/internal/storage"
+	"github.com/hop-os/hopqueue/pkg/protocol"
 )
 
 // Config bundles the follower's tuning knobs. Zero values pick
